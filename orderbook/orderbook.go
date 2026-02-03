@@ -1,7 +1,9 @@
 package orderbook
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 )
@@ -169,4 +171,30 @@ func (ob *OrderBook) String() string {
 	}
 	s += "------------------\n"
 	return s
+}
+
+// SaveToFile marshals the OrderBook to JSON and saves it to the specified filename
+func (ob *OrderBook) SaveToFile(filename string) error {
+	data, err := json.MarshalIndent(ob, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, data, 0644)
+}
+
+// LoadFromFile loads the OrderBook from the specified filename
+func LoadFromFile(filename string) (*OrderBook, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return NewOrderBook(), nil
+		}
+		return nil, err
+	}
+
+	var ob OrderBook
+	if err := json.Unmarshal(data, &ob); err != nil {
+		return nil, err
+	}
+	return &ob, nil
 }
