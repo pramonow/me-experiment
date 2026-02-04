@@ -19,8 +19,9 @@ func NewOrderHandler(uc *usecase.OrderUseCase) *OrderHandler {
 
 type PlaceOrderRequest struct {
 	Side  string  `json:"side" binding:"required,oneof=buy sell"`
+	Type  string  `json:"type" binding:"required,oneof=limit market"`
 	Size  float64 `json:"size" binding:"required,gt=0"`
-	Price float64 `json:"price" binding:"required,gt=0"`
+	Price float64 `json:"price"` // Optional for market orders
 }
 
 type OrderResponse struct {
@@ -46,7 +47,7 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	trades, order, err := h.UseCase.PlaceLimitOrder(req.Side, req.Size, req.Price)
+	trades, order, err := h.UseCase.PlaceOrder(req.Side, req.Type, req.Size, req.Price)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

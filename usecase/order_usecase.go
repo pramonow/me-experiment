@@ -33,20 +33,34 @@ func (uc *OrderUseCase) GetOrderBook() *orderbook.OrderBook {
 	return uc.OrderBook
 }
 
-func (uc *OrderUseCase) PlaceLimitOrder(sideStr string, size float64, price float64) ([]orderbook.Trade, *orderbook.Order, error) {
+func (uc *OrderUseCase) PlaceOrder(sideStr string, typeStr string, size float64, price float64) ([]orderbook.Trade, *orderbook.Order, error) {
 	uc.Mutex.Lock()
 	defer uc.Mutex.Unlock()
 
 	var side orderbook.Side
-	if sideStr == "buy" {
+	switch sideStr {
+	case "buy":
 		side = orderbook.Buy
-	} else if sideStr == "sell" {
+	case "sell":
 		side = orderbook.Sell
-	} else {
+	default:
 		return nil, nil, fmt.Errorf("invalid side: %s", sideStr)
 	}
 
-	trades, order := uc.OrderBook.ProcessLimitOrder(side, size, price)
+	var trades []orderbook.Trade
+	var order *orderbook.Order
+
+	if typeStr == "market" {
+		trades = uc.OrderBook.ProcessMarketOrder(side, size)
+		order = nil // Market orders don't rest
+	} else if typeStr == "limit" {
+		if price <= 0 {
+			return nil, nil, fmt.Errorf("price must be > 0 for limit orders")
+		}
+		trades, order = uc.OrderBook.ProcessLimitOrder(side, size, price)
+	} else {
+		return nil, nil, fmt.Errorf("invalid order type: %s", typeStr)
+	}
 
 	if err := uc.OrderBook.SaveToFile(uc.FilePath); err != nil {
 		fmt.Printf("Error saving orderbook: %v\n", err)

@@ -151,6 +151,51 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 	return trades, nil
 }
 
+// ProcessMarketOrder handles the matching logic for a market order
+// Matches against available orders at any price until filled or book empty.
+// Remaining size is cancelled (IOC - Immediate or Cancel).
+func (ob *OrderBook) ProcessMarketOrder(side Side, size float64) []Trade {
+	trades := []Trade{}
+	remainingSize := size
+
+	if side == Buy {
+		for len(ob.Asks) > 0 && remainingSize > 0 {
+			bestAsk := ob.Asks[0]
+			matchSize := min(remainingSize, bestAsk.Size)
+			trades = append(trades, Trade{
+				BuyOrderID:  0, // Match ID
+				SellOrderID: bestAsk.ID,
+				Price:       bestAsk.Price,
+				Size:        matchSize,
+				Timestamp:   time.Now().UnixNano(),
+			})
+			remainingSize -= matchSize
+			bestAsk.Size -= matchSize
+			if bestAsk.Size == 0 {
+				ob.Asks = ob.Asks[1:]
+			}
+		}
+	} else {
+		for len(ob.Bids) > 0 && remainingSize > 0 {
+			bestBid := ob.Bids[0]
+			matchSize := min(remainingSize, bestBid.Size)
+			trades = append(trades, Trade{
+				BuyOrderID:  bestBid.ID,
+				SellOrderID: 0,
+				Price:       bestBid.Price,
+				Size:        matchSize,
+				Timestamp:   time.Now().UnixNano(),
+			})
+			remainingSize -= matchSize
+			bestBid.Size -= matchSize
+			if bestBid.Size == 0 {
+				ob.Bids = ob.Bids[1:]
+			}
+		}
+	}
+	return trades
+}
+
 func min(a, b float64) float64 {
 	if a < b {
 		return a
