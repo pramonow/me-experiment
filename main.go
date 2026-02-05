@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"matching-engine/account"
 	"matching-engine/handler"
+	"matching-engine/internal/domain/account"
 	"matching-engine/usecase"
 
 	"github.com/gin-gonic/gin"

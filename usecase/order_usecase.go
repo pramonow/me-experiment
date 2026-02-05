@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"fmt"
-	"matching-engine/account"
-	"matching-engine/orderbook"
+	"matching-engine/internal/domain/account"
+	"matching-engine/internal/domain/orderbook"
 	"sync"
 )
 

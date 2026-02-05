@@ -13,3 +13,6 @@ now please do add match order option in placing order and also create postman co
 
 5. now to get things a bit more complex, make this account based
 for the starting MVP, storing user in the memory first would be fine
+
+6. just to tidy up codebase foldering abit
+since orderbook and account is not on the same level as usecase and handler could you group it into one specific folder? just give me your best name, i usually name it internal.
