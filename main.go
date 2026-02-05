@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"matching-engine/account"
 	"matching-engine/handler"
 	"matching-engine/usecase"
 
@@ -11,10 +12,13 @@ import (
 const OrderBookFile = "orderbook.json"
 
 func main() {
-	// 1. Initialize UseCase
-	orderUC := usecase.NewOrderUseCase(OrderBookFile)
+	// 1. Initialize AccountManager
+	accountManager := account.NewAccountManager()
 
-	// 2. Initialize Handler
+	// 2. Initialize UseCase
+	orderUC := usecase.NewOrderUseCase(OrderBookFile, accountManager)
+
+	// 3. Initialize Handler
 	orderHandler := handler.NewOrderHandler(orderUC)
 
 	// 3. Setup Gin Router

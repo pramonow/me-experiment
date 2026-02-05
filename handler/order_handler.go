@@ -18,10 +18,11 @@ func NewOrderHandler(uc *usecase.OrderUseCase) *OrderHandler {
 }
 
 type PlaceOrderRequest struct {
-	Side  string  `json:"side" binding:"required,oneof=buy sell"`
-	Type  string  `json:"type" binding:"required,oneof=limit market"`
-	Size  float64 `json:"size" binding:"required,gt=0"`
-	Price float64 `json:"price"` // Optional for market orders
+	UserID string  `json:"user_id" binding:"required"`
+	Side   string  `json:"side" binding:"required,oneof=buy sell"`
+	Type   string  `json:"type" binding:"required,oneof=limit market"`
+	Size   float64 `json:"size" binding:"required,gt=0"`
+	Price  float64 `json:"price"` // Optional for market orders
 }
 
 type OrderResponse struct {
@@ -33,6 +34,54 @@ func (h *OrderHandler) RegisterRoutes(r *gin.Engine) {
 	r.GET("/orderbook", h.GetOrderBook)
 	r.POST("/orders", h.PlaceOrder)
 	r.DELETE("/orderbook", h.ClearOrderBook)
+
+	// Account Routes
+	r.POST("/accounts", h.CreateAccount)
+	r.POST("/accounts/deposit", h.Deposit)
+	r.GET("/accounts/:user_id", h.GetAccount)
+}
+
+// ... existing methods ...
+
+func (h *OrderHandler) CreateAccount(c *gin.Context) {
+	var req struct {
+		UserID string `json:"user_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.UseCase.AccountManager.CreateAccount(req.UserID)
+	c.JSON(http.StatusOK, gin.H{"message": "account created"})
+}
+
+func (h *OrderHandler) Deposit(c *gin.Context) {
+	var req struct {
+		UserID   string  `json:"user_id" binding:"required"`
+		Currency string  `json:"currency" binding:"required"`
+		Amount   float64 `json:"amount" binding:"required,gt=0"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.UseCase.AccountManager.Deposit(req.UserID, req.Currency, req.Amount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "deposit successful"})
+}
+
+func (h *OrderHandler) GetAccount(c *gin.Context) {
+	userID := c.Param("user_id")
+	acc, err := h.UseCase.AccountManager.GetAccount(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, acc)
 }
 
 func (h *OrderHandler) GetOrderBook(c *gin.Context) {
@@ -47,7 +96,7 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	trades, order, err := h.UseCase.PlaceOrder(req.Side, req.Type, req.Size, req.Price)
+	trades, order, err := h.UseCase.PlaceOrder(req.UserID, req.Side, req.Type, req.Size, req.Price)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

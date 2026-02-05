@@ -17,6 +17,7 @@ const (
 
 type Order struct {
 	ID        uint64
+	UserID    string
 	Side      Side
 	Size      float64
 	Price     float64
@@ -26,6 +27,8 @@ type Order struct {
 type Trade struct {
 	BuyOrderID  uint64
 	SellOrderID uint64
+	BuyUserID   string
+	SellUserID  string
 	Price       float64
 	Size        float64
 	Timestamp   int64
@@ -44,15 +47,12 @@ func NewOrderBook() *OrderBook {
 }
 
 // ProcessLimitOrder handles the matching logic for a limit order
-// It returns a list of trades executd and the remaining order (if any)
-func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) ([]Trade, *Order) {
+func (ob *OrderBook) ProcessLimitOrder(side Side, userID string, size float64, price float64) ([]Trade, *Order) {
 	trades := []Trade{}
 	remainingSize := size
 
 	if side == Buy {
 		// Matching against Asks (Sellers)
-		// We want to buy low. We check the Asks from lowest price upwards.
-		// As long as BestAsk <= MyLimitPrice, we match.
 		for len(ob.Asks) > 0 && remainingSize > 0 {
 			bestAsk := ob.Asks[0] // Lowest Ask
 			if bestAsk.Price > price {
@@ -64,7 +64,9 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 			trades = append(trades, Trade{
 				BuyOrderID:  0, // Temporary ID for incoming
 				SellOrderID: bestAsk.ID,
-				Price:       bestAsk.Price, // Maker's price usually determines trade price
+				BuyUserID:   userID,
+				SellUserID:  bestAsk.UserID,
+				Price:       bestAsk.Price,
 				Size:        matchSize,
 				Timestamp:   time.Now().UnixNano(),
 			})
@@ -82,16 +84,16 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 		if remainingSize > 0 {
 			newOrder := &Order{
 				ID:        uint64(time.Now().UnixNano()), // Simple ID generation
+				UserID:    userID,
 				Side:      Buy,
 				Size:      remainingSize,
 				Price:     price,
 				Timestamp: time.Now().UnixNano(),
 			}
 			ob.Bids = append(ob.Bids, newOrder)
-			// Bids are sorted by Price Descending (Highest first)
 			sort.Slice(ob.Bids, func(i, j int) bool {
 				if ob.Bids[i].Price == ob.Bids[j].Price {
-					return ob.Bids[i].Timestamp < ob.Bids[j].Timestamp // Time Priority
+					return ob.Bids[i].Timestamp < ob.Bids[j].Timestamp
 				}
 				return ob.Bids[i].Price > ob.Bids[j].Price
 			})
@@ -99,10 +101,7 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 		}
 
 	} else {
-		// Sell Order
-		// Matching against Bids (Buyers)
-		// We want to sell high. We check Bids from highest price downwards.
-		// As long as BestBid >= MyLimitPrice, we match.
+		// Sell Order matching against Bids
 		for len(ob.Bids) > 0 && remainingSize > 0 {
 			bestBid := ob.Bids[0] // Highest Bid
 			if bestBid.Price < price {
@@ -113,7 +112,9 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 			matchSize := min(remainingSize, bestBid.Size)
 			trades = append(trades, Trade{
 				BuyOrderID:  bestBid.ID,
-				SellOrderID: 0, // Temporary
+				SellOrderID: 0,
+				BuyUserID:   bestBid.UserID,
+				SellUserID:  userID,
 				Price:       bestBid.Price,
 				Size:        matchSize,
 				Timestamp:   time.Now().UnixNano(),
@@ -131,13 +132,13 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 		if remainingSize > 0 {
 			newOrder := &Order{
 				ID:        uint64(time.Now().UnixNano()),
+				UserID:    userID,
 				Side:      Sell,
 				Size:      remainingSize,
 				Price:     price,
 				Timestamp: time.Now().UnixNano(),
 			}
 			ob.Asks = append(ob.Asks, newOrder)
-			// Asks are sorted by Price Ascending (Lowest first)
 			sort.Slice(ob.Asks, func(i, j int) bool {
 				if ob.Asks[i].Price == ob.Asks[j].Price {
 					return ob.Asks[i].Timestamp < ob.Asks[j].Timestamp
@@ -152,9 +153,7 @@ func (ob *OrderBook) ProcessLimitOrder(side Side, size float64, price float64) (
 }
 
 // ProcessMarketOrder handles the matching logic for a market order
-// Matches against available orders at any price until filled or book empty.
-// Remaining size is cancelled (IOC - Immediate or Cancel).
-func (ob *OrderBook) ProcessMarketOrder(side Side, size float64) []Trade {
+func (ob *OrderBook) ProcessMarketOrder(side Side, userID string, size float64) []Trade {
 	trades := []Trade{}
 	remainingSize := size
 
@@ -163,8 +162,10 @@ func (ob *OrderBook) ProcessMarketOrder(side Side, size float64) []Trade {
 			bestAsk := ob.Asks[0]
 			matchSize := min(remainingSize, bestAsk.Size)
 			trades = append(trades, Trade{
-				BuyOrderID:  0, // Match ID
+				BuyOrderID:  0,
 				SellOrderID: bestAsk.ID,
+				BuyUserID:   userID,
+				SellUserID:  bestAsk.UserID,
 				Price:       bestAsk.Price,
 				Size:        matchSize,
 				Timestamp:   time.Now().UnixNano(),
@@ -182,6 +183,8 @@ func (ob *OrderBook) ProcessMarketOrder(side Side, size float64) []Trade {
 			trades = append(trades, Trade{
 				BuyOrderID:  bestBid.ID,
 				SellOrderID: 0,
+				BuyUserID:   bestBid.UserID,
+				SellUserID:  userID,
 				Price:       bestBid.Price,
 				Size:        matchSize,
 				Timestamp:   time.Now().UnixNano(),
