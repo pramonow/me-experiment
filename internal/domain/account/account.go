@@ -1,6 +1,7 @@
 package account
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 )
@@ -14,11 +15,13 @@ type Account struct {
 type AccountManager struct {
 	Accounts map[string]*Account
 	Mutex    sync.RWMutex
+	DB       *sql.DB
 }
 
-func NewAccountManager() *AccountManager {
+func NewAccountManager(db *sql.DB) *AccountManager {
 	return &AccountManager{
 		Accounts: make(map[string]*Account),
+		DB:       db,
 	}
 }
 

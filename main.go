@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"matching-engine/handler"
 	"matching-engine/internal/domain/account"
+	"matching-engine/internal/infrastructure/database"
 	"matching-engine/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -12,8 +14,17 @@ import (
 const OrderBookFile = "orderbook.json"
 
 func main() {
-	// 1. Initialize AccountManager
-	accountManager := account.NewAccountManager()
+	// 1. Connect to Postgres
+	// Ideally use environment variables, but hardcoding for local POC for now
+	db, err := database.NewPostgresDB("localhost", "5432", "postgres", "postgres", "matching_engine")
+	if err != nil {
+		log.Printf("Warning: Could not connect to database: %v. Continuing without DB persistence.", err)
+	} else {
+		defer db.Close()
+	}
+
+	// 2. Initialize AccountManager
+	accountManager := account.NewAccountManager(db)
 
 	// 2. Initialize UseCase
 	orderUC := usecase.NewOrderUseCase(OrderBookFile, accountManager)

@@ -16,3 +16,6 @@ for the starting MVP, storing user in the memory first would be fine
 
 6. just to tidy up codebase foldering abit
 since orderbook and account is not on the same level as usecase and handler could you group it into one specific folder? just give me your best name, i usually name it internal.
+
+7. now lets create database access, make it connect to localhost as of now, lets use postgres as our base
+but keep some data in memory.
